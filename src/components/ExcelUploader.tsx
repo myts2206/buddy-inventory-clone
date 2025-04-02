@@ -183,7 +183,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
       }
 
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
+        client_id: '308713919748-j4i4giqvgkuluukemumj709k1q279865.apps.googleusercontent.com',
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: (response: any) => {
           if (response.error) {
