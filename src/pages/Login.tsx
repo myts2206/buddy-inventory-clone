@@ -59,7 +59,7 @@ const Login = () => {
     if (typeof window.google !== 'undefined' && window.google.accounts && window.google.accounts.id) {
       try {
         window.google.accounts.id.initialize({
-          client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
+          client_id: '308713919748-j4i4giqvgkuluukemumj709k1q279865.apps.googleusercontent.com',
           callback: handleGoogleResponse,
           auto_select: false,
           cancel_on_tap_outside: true
