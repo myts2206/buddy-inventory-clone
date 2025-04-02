@@ -16,6 +16,22 @@ const Login = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Get the current hostname for the redirect URI
+  const getRedirectUri = () => {
+    const location = window.location;
+    const hostname = location.hostname;
+    const port = location.port ? `:${location.port}` : '';
+    const protocol = location.protocol;
+    
+    // For localhost development
+    if (hostname === 'localhost') {
+      return `${protocol}//${hostname}${port}/dashboard`;
+    }
+    
+    // For production environment - use the base URL without paths
+    return `${protocol}//${hostname}${port}`;
+  };
 
   useEffect(() => {
     // Load Google Identity Services
@@ -41,30 +57,43 @@ const Login = () => {
 
   const initializeGoogleSignIn = () => {
     if (typeof window.google !== 'undefined' && window.google.accounts && window.google.accounts.id) {
-      window.google.accounts.id.initialize({
-        client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
-        callback: handleGoogleResponse,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
+      try {
+        window.google.accounts.id.initialize({
+          client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
+          callback: handleGoogleResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
 
-      window.google.accounts.id.renderButton(
-        document.getElementById('google-signin'),
-        { 
-          type: 'standard',
-          theme: 'outline',
-          size: 'large',
-          width: 'fill',
-          logo_alignment: 'center',
-          text: 'continue_with'
-        }
-      );
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin'),
+          { 
+            type: 'standard',
+            theme: 'outline',
+            size: 'large',
+            width: 'fill',
+            logo_alignment: 'center',
+            text: 'continue_with'
+          }
+        );
+        
+        console.log('Google Sign-In initialized with redirect URI:', getRedirectUri());
+      } catch (error) {
+        console.error('Error initializing Google Sign-In:', error);
+        toast({
+          variant: "destructive",
+          title: "Google Sign-In Error",
+          description: "Failed to initialize Google Sign-In. Please refresh the page."
+        });
+      }
     }
   };
 
   const handleGoogleResponse = async (response: any) => {
     try {
       setIsAuthenticating(true);
+      
+      console.log('Google response received');
       
       // In a real application, you would validate this token on your backend
       // For this demo, we'll just use the presence of the credential as proof of authentication

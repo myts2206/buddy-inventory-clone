@@ -125,16 +125,26 @@ export const signOut = async (): Promise<void> => {
       // Using manual token revocation instead of the missing method
       const token = localStorage.getItem('googleToken') || '';
       
-      // Create a revocation URL and send a request
-      const revokeUrl = `https://accounts.google.com/o/oauth2/revoke?token=${token}`;
-      
-      const response = await fetch(revokeUrl);
-      if (response.ok) {
-        localStorage.removeItem('googleToken');
-        toast({
-          title: "Signed Out",
-          description: "Signed out from Gmail"
+      if (window.google.accounts.oauth2.revoke) {
+        window.google.accounts.oauth2.revoke(token, () => {
+          localStorage.removeItem('googleToken');
+          toast({
+            title: "Signed Out",
+            description: "Signed out from Gmail"
+          });
         });
+      } else {
+        // Create a revocation URL and send a request
+        const revokeUrl = `https://accounts.google.com/o/oauth2/revoke?token=${token}`;
+        
+        const response = await fetch(revokeUrl);
+        if (response.ok) {
+          localStorage.removeItem('googleToken');
+          toast({
+            title: "Signed Out",
+            description: "Signed out from Gmail"
+          });
+        }
       }
     }
   } catch (error) {

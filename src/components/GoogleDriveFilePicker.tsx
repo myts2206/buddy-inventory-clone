@@ -49,10 +49,11 @@ const GoogleDriveFilePicker = ({ onFileSelect, currentFileName }: GoogleDriveFil
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: (response: any) => {
           if (response.error) {
+            console.error('OAuth error:', response);
             toast({
               variant: "destructive",
               title: "Authentication Failed",
-              description: "Could not get access to Google Drive."
+              description: response.error_description || "Could not get access to Google Drive."
             });
             resolve(null);
           } else {
