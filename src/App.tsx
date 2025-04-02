@@ -42,7 +42,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter basename="/buddy-inventory-clone">
           <Routes>
             <Route path="/login" element={
               isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
