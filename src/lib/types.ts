@@ -1,4 +1,3 @@
-
 export interface Product {
   id: string;
   name: string;
@@ -121,3 +120,15 @@ export const monthlyDemandData = [
   { month: 'Apr', value: 0 },
   { month: 'May', value: 0 },
 ];
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  price: number;
+  tags: string[];
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

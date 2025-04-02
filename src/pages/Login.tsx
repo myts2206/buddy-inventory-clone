@@ -1,24 +1,110 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Package, ArrowRight, User, Lock } from 'lucide-react';
+import { Package, Mail, Lock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { FcGoogle } from "react-icons/fc";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [username, setUsername] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Load Google Identity Services
+    const loadGoogleScript = async () => {
+      if (typeof window.google === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          setIsGoogleLoaded(true);
+          initializeGoogleSignIn();
+        };
+        document.body.appendChild(script);
+      } else {
+        setIsGoogleLoaded(true);
+        initializeGoogleSignIn();
+      }
+    };
+
+    loadGoogleScript();
+  }, []);
+
+  const initializeGoogleSignIn = () => {
+    if (typeof window.google !== 'undefined') {
+      window.google.accounts.id.initialize({
+        client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
+        callback: handleGoogleResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      window.google.accounts.id.renderButton(
+        document.getElementById('google-signin'),
+        { 
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          logo_alignment: 'center',
+          text: 'continue_with'
+        }
+      );
+    }
+  };
+
+  const handleGoogleResponse = async (response: any) => {
+    try {
+      setIsAuthenticating(true);
+      
+      // In a real application, you would validate this token on your backend
+      // For this demo, we'll just use the presence of the credential as proof of authentication
+      if (response && response.credential) {
+        // Store the authentication token and status
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('googleToken', response.credential);
+        
+        toast({
+          title: "Login successful",
+          description: "Welcome to BOLDFIT Inventory Management",
+        });
+        
+        // Navigate to dashboard after successful login
+        navigate('/dashboard');
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: "Authentication with Google failed. Please try again.",
+        });
+      }
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      toast({
+        variant: "destructive",
+        title: "Login error",
+        description: "An error occurred during authentication. Please try again.",
+      });
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleRegularLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For demo purposes - validate login
+    // Regular username/password login logic
     if (username && password) {
+      localStorage.setItem('isAuthenticated', 'true');
       toast({
         title: "Login successful",
         description: "Welcome to BOLDFIT Inventory Management",
@@ -52,23 +138,23 @@ const Login = () => {
           <div className="hidden md:block">
             <div className="flex items-center mb-4">
               <div className="rounded-full bg-primary-foreground/20 p-2 mr-4">
-                <ArrowRight className="h-5 w-5" />
+                <Mail className="h-5 w-5" />
               </div>
-              <p className="font-medium">Real-time inventory tracking</p>
+              <p className="font-medium">Sign in with your Google account</p>
             </div>
             
             <div className="flex items-center mb-4">
               <div className="rounded-full bg-primary-foreground/20 p-2 mr-4">
-                <ArrowRight className="h-5 w-5" />
+                <Package className="h-5 w-5" />
               </div>
-              <p className="font-medium">Advanced analytics dashboard</p>
+              <p className="font-medium">Access all your inventory data</p>
             </div>
             
             <div className="flex items-center">
               <div className="rounded-full bg-primary-foreground/20 p-2 mr-4">
-                <ArrowRight className="h-5 w-5" />
+                <Package className="h-5 w-5" />
               </div>
-              <p className="font-medium">Smart reorder recommendations</p>
+              <p className="font-medium">Latest data is automatically loaded</p>
             </div>
           </div>
         </div>
@@ -80,52 +166,86 @@ const Login = () => {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access your account
+              Sign in to access your inventory data
             </CardDescription>
           </CardHeader>
           
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="username" 
-                    placeholder="Enter your username" 
-                    className="pl-10" 
-                    value={username} 
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
+          <CardContent className="space-y-6">
+            {/* Google Sign-In Button */}
+            <div className="w-full">
+              <div 
+                id="google-signin" 
+                className={`w-full flex justify-center ${!isGoogleLoaded ? 'opacity-50' : ''}`}
+              ></div>
+              {!isGoogleLoaded && (
+                <div className="w-full mt-2 text-center text-sm text-muted-foreground">
+                  Loading Google Sign-In...
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="Enter your password" 
-                    className="pl-10" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardContent>
+              )}
+            </div>
             
-            <CardFooter>
-              <Button type="submit" className="w-full">
-                Login
-              </Button>
-            </CardFooter>
-          </form>
+            <div className="relative flex items-center">
+              <span className="w-full border-t"></span>
+              <span className="px-4 text-xs text-muted-foreground">OR</span>
+              <span className="w-full border-t"></span>
+            </div>
+            
+            <form onSubmit={handleRegularLoginSubmit}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="username" 
+                      placeholder="Enter your username" 
+                      className="pl-10" 
+                      value={username} 
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      placeholder="Enter your password" 
+                      className="pl-10" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <Button type="submit" className="w-full">
+                  Login
+                </Button>
+              </div>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </div>
   );
 };
+
+// Add TypeScript declaration for Google Identity Services
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          renderButton: (element: HTMLElement | null, options: any) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 export default Login;

@@ -1,13 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Dashboard from '@/components/Dashboard';
 import ExcelUploader from '@/components/ExcelUploader';
+import GoogleDriveFilePicker from '@/components/GoogleDriveFilePicker';
 import { DataProvider } from '@/contexts/DataContext';
 import { SearchProvider } from '@/contexts/SearchContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileSpreadsheet, BarChart, Upload, CalendarIcon } from 'lucide-react';
+import { FileSpreadsheet, BarChart, Upload, CalendarIcon, Loader2 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -33,10 +35,52 @@ const EmptyState = ({ onShowUploader }: { onShowUploader: () => void }) => {
 
 const IndexContent = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { products, getCurrentMonth } = useData();
+  const { 
+    products, 
+    getCurrentMonth, 
+    currentFileName, 
+    loadFileFromGoogleDrive,
+    isLoadingData
+  } = useData();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const hasData = products && Array.isArray(products) && products.length > 0;
   const currentMonth = getCurrentMonth();
+  
+  // Check authentication status
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  const handleFileSelect = async (fileId: string, fileName: string) => {
+    const success = await loadFileFromGoogleDrive(fileId, fileName);
+    if (success) {
+      setActiveTab("dashboard");
+    }
+  };
+
+  if (isLoadingData && !hasData) {
+    return (
+      <div className="flex h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-y-auto flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+              <h2 className="text-xl font-semibold">Loading your inventory data...</h2>
+              <p className="text-muted-foreground mt-2">
+                Please wait while we fetch your latest data
+              </p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -68,6 +112,13 @@ const IndexContent = () => {
                 </div>
               )}
             </div>
+            
+            {hasData && (
+              <GoogleDriveFilePicker
+                onFileSelect={handleFileSelect}
+                currentFileName={currentFileName || undefined}
+              />
+            )}
             
             <TabsContent value="dashboard">
               {hasData ? (

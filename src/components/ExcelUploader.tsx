@@ -6,10 +6,6 @@ import { Upload, Info, FileSpreadsheet, CheckCircle2, History, RefreshCw } from 
 import { useToast } from "@/hooks/use-toast";
 import { useData } from '@/contexts/DataContext';
 import * as XLSX from 'xlsx';
-// @ts-ignore
-declare const google: any;
-// @ts-ignore
-declare const gapi: any;
 
 interface ExcelUploaderProps {
   onDataUploaded: () => void;
@@ -20,131 +16,18 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
   const [isUploaded, setIsUploaded] = useState(false);
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showMonthlyData, setShowMonthlyData] = useState(false);
   const { toast } = useToast();
-  const { uploadData } = useData();
+  const { uploadData, loadFileFromGoogleDrive, currentFileName } = useData();
 
   // Auto-load latest data on component mount
   useEffect(() => {
-    const autoLoadLatestData = async () => {
-      // Only auto-load if we haven't uploaded data yet
-      if (!isUploaded) {
-        try {
-          setIsLoading(true);
-          const latestFile = await fetchLatestFileFromGoogleDrive();
-          if (latestFile) {
-            await processFile(latestFile);
-            toast({
-              title: "Latest data loaded automatically",
-              description: `Loaded ${latestFile.name} from Google Drive`,
-              variant: "default"
-            });
-          }
-        } catch (error) {
-          console.error('Error auto-loading data:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // We need to load the Google APIs first before auto-loading
-    loadGoogleApis().then(() => {
-      autoLoadLatestData();
-    }).catch(error => {
-      console.error('Failed to load Google APIs:', error);
-    });
-  }, []);
-
-  const loadGoogleApis = async (): Promise<void> => {
-    // Load Google Identity Services
-    if (typeof google === 'undefined') {
-      await new Promise<void>((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
-        document.body.appendChild(script);
-      });
+    // We don't need this auto-load here anymore since we're doing it at the DataContext level
+    // But we can set the isUploaded state based on whether we have a currentFileName
+    if (currentFileName) {
+      setIsUploaded(true);
+      setFileName(currentFileName);
     }
-
-    // Load Google Picker API
-    await new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.async = true;
-      script.onload = () => {
-        gapi.load('picker', resolve);
-      };
-      script.onerror = () => reject(new Error('Failed to load Google Picker API'));
-      document.body.appendChild(script);
-    });
-  };
-
-  const fetchLatestFileFromGoogleDrive = async (): Promise<File | null> => {
-    try {
-      // Request Google Drive access token
-      const accessToken = await getGoogleDriveAccessToken();
-      
-      if (!accessToken) {
-        console.error('No access token available');
-        return null;
-      }
-
-      // Search for the latest inventory file
-      // Here we're looking for Excel files with a specific naming convention
-      // Adjust the query as needed for your file naming pattern
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'inventory' and mimeType contains 'spreadsheet' and trashed=false&orderBy=createdTime desc&fields=files(id,name,createdTime)&pageSize=1`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const data = await response.json();
-      
-      if (!data.files || data.files.length === 0) {
-        console.log('No inventory files found');
-        return null;
-      }
-
-      const latestFile = data.files[0];
-      console.log('Found latest inventory file:', latestFile);
-
-      // Download the file
-      const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${latestFile.id}?alt=media`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      const blob = await fileResponse.blob();
-      return new File([blob], latestFile.name);
-
-    } catch (error) {
-      console.error('Error fetching latest file:', error);
-      throw error;
-    }
-  };
-
-  const getGoogleDriveAccessToken = async (): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: '308713919748-j4i4giqvgkuluukemumj709k1q279865.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
-        callback: (response: any) => {
-          if (response.access_token) {
-            resolve(response.access_token);
-          } else {
-            resolve(null);
-          }
-        }
-      });
-
-      tokenClient.requestAccessToken();
-    });
-  };
+  }, [currentFileName]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -222,10 +105,12 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
     }
   };
 
-  const handleGoogleDriveFile = async (monthlyView = false) => {
+  const handleGoogleDriveFile = async () => {
     try {
-      await loadGoogleApis();
-
+      // Load the Google API
+      await loadGoogleApi();
+      
+      // Get access token
       const accessToken = await getGoogleDriveAccessToken();
       
       if (!accessToken) {
@@ -237,32 +122,17 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
         return;
       }
 
-      let picker;
+      // Initialize Google Picker
+      const picker = new google.picker.PickerBuilder()
+        .addView(new google.picker.DocsView()
+          .setIncludeFolders(false)
+          .setMimeTypes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv')
+        )
+        .setOAuthToken(accessToken)
+        .setDeveloperKey('AIzaSyCYDj_5YgUEmzq8WSRe0H7nLvflB5COug8')
+        .setCallback(handlePickerCallback)
+        .build();
       
-      if (monthlyView) {
-        // Show custom view for monthly data files
-        picker = new google.picker.PickerBuilder()
-          .addView(new google.picker.DocsView()
-            .setIncludeFolders(true)
-            .setSelectFolderEnabled(false)
-            .setMimeTypes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv')
-            .setQuery('monthly inventory')
-          )
-          .setTitle('Select Monthly Inventory Data')
-          .setOAuthToken(accessToken)
-          .setDeveloperKey('AIzaSyCYDj_5YgUEmzq8WSRe0H7nLvflB5COug8')
-          .setCallback(handlePickerCallback)
-          .build();
-      } else {
-        // Standard file picker
-        picker = new google.picker.PickerBuilder()
-          .addView(google.picker.ViewId.SPREADSHEETS)
-          .setOAuthToken(accessToken)
-          .setDeveloperKey('AIzaSyCYDj_5YgUEmzq8WSRe0H7nLvflB5COug8')
-          .setCallback(handlePickerCallback)
-          .build();
-      }
-
       picker.setVisible(true);
     } catch (error) {
       console.error('Picker error:', error);
@@ -274,34 +144,74 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
     }
   };
 
+  const loadGoogleApi = async (): Promise<void> => {
+    // Load Google Identity Services if not already loaded
+    if (typeof google === 'undefined' || !google.accounts) {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
+        document.body.appendChild(script);
+      });
+    }
+
+    // Load Google Picker API if not already loaded
+    if (typeof google === 'undefined' || !google.picker) {
+      await new Promise<void>((resolve, reject) => {
+        gapi.load('picker', {
+          callback: resolve,
+          onerror: () => reject(new Error('Failed to load Google Picker API')),
+        });
+      });
+    }
+  };
+
+  const getGoogleDriveAccessToken = async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      if (typeof google === 'undefined' || !google.accounts) {
+        toast({
+          variant: "destructive",
+          title: "Google API not loaded",
+          description: "Please try refreshing the page."
+        });
+        resolve(null);
+        return;
+      }
+
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        callback: (response: any) => {
+          if (response.error) {
+            toast({
+              variant: "destructive",
+              title: "Authentication Failed",
+              description: "Could not get access to Google Drive."
+            });
+            resolve(null);
+          } else {
+            resolve(response.access_token);
+          }
+        }
+      });
+
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+  };
+
   const handlePickerCallback = async (data: any) => {
     if (data.action === 'picked') {
       const fileId = data.docs[0].id;
       const fileName = data.docs[0].name;
-      setIsLoading(true);
       
-      try {
-        const accessToken = await getGoogleDriveAccessToken();
-        if (!accessToken) return;
-        
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        
-        const blob = await res.blob();
-        const file = new File([blob], fileName);
-        await processFile(file);
-      } catch (error) {
-        console.error('Error processing picked file:', error);
-        toast({
-          title: "Error",
-          description: "Failed to process the selected file",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
+      const success = await loadFileFromGoogleDrive(fileId, fileName);
+      if (success) {
+        setIsUploaded(true);
+        setFileName(fileName);
+        onDataUploaded();
       }
     }
   };
@@ -309,13 +219,45 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
   const refreshLatestData = async () => {
     setIsLoading(true);
     try {
-      const latestFile = await fetchLatestFileFromGoogleDrive();
-      if (latestFile) {
-        await processFile(latestFile);
+      // Load the Google API
+      await loadGoogleApi();
+      
+      // Get access token
+      const accessToken = await getGoogleDriveAccessToken();
+      
+      if (!accessToken) {
+        toast({
+          title: "Authentication Error",
+          description: "Failed to get Google Drive access token",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Search for the latest Excel file
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=mimeType contains 'spreadsheet' and trashed=false&orderBy=modifiedTime desc&fields=files(id,name)&pageSize=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.files && data.files.length > 0) {
+        const latestFile = data.files[0];
+        const success = await loadFileFromGoogleDrive(latestFile.id, latestFile.name);
+        if (success) {
+          setIsUploaded(true);
+          setFileName(latestFile.name);
+          onDataUploaded();
+        }
       } else {
         toast({
           title: "No files found",
-          description: "Could not find inventory files in Google Drive",
+          description: "Could not find Excel files in Google Drive",
           variant: "destructive"
         });
       }
@@ -374,16 +316,8 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
                     <Button>Browse Files</Button>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <Button variant="outline" onClick={() => handleGoogleDriveFile(false)}>
+                    <Button variant="outline" onClick={handleGoogleDriveFile}>
                       Pick from Google Drive
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleGoogleDriveFile(true)}
-                      className="flex items-center gap-1"
-                    >
-                      <History className="h-4 w-4" />
-                      Access Monthly Data
                     </Button>
                     <Button
                       variant="outline"
@@ -392,7 +326,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
                       disabled={isLoading}
                     >
                       <RefreshCw className="h-4 w-4" />
-                      Refresh Latest Data
+                      Load Latest File
                     </Button>
                   </div>
                 </>
@@ -412,14 +346,6 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
               <Button variant="outline" onClick={() => setIsUploaded(false)}>
                 Upload a different file
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handleGoogleDriveFile(true)}
-                className="flex items-center gap-1"
-              >
-                <History className="h-4 w-4" />
-                Access Monthly Data
-              </Button>
               <Button
                 variant="outline"
                 onClick={refreshLatestData}
@@ -427,7 +353,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
                 disabled={isLoading}
               >
                 <RefreshCw className="h-4 w-4" />
-                Refresh Latest Data
+                Load Latest File
               </Button>
             </div>
           </div>
@@ -460,5 +386,13 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
     </Card>
   );
 };
+
+// Add declarations for the Google APIs
+declare global {
+  interface Window {
+    google: any;
+    gapi: any;
+  }
+}
 
 export default ExcelUploader;

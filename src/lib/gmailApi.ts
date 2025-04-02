@@ -1,6 +1,7 @@
-import { toast } from "sonner";
 
-const CLIENT_ID = "570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com"; // Replace with your actual client ID
+import { toast } from "@/hooks/use-toast";
+
+const CLIENT_ID = "570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com";
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
 const SCOPES = "https://www.googleapis.com/auth/gmail.send";
 
@@ -18,26 +19,57 @@ export const initGmailApi = async (): Promise<void> => {
 
   gapiInitPromise = new Promise<void>(async (resolve, reject) => {
     try {
-      const pack = await import("gapi-script");
-      gapi = pack.gapi;
+      // Load the Google API client
+      if (!window.gapi) {
+        await new Promise<void>((loadResolve, loadReject) => {
+          const script = document.createElement('script');
+          script.src = 'https://apis.google.com/js/api.js';
+          script.async = true;
+          script.defer = true;
+          script.onload = () => loadResolve();
+          script.onerror = () => loadReject(new Error('Failed to load gapi script'));
+          document.body.appendChild(script);
+        });
+      }
 
-      gapi.load("client:auth2", async () => {
+      // Load OAuth2 library
+      if (!window.google) {
+        await new Promise<void>((loadResolve, loadReject) => {
+          const script = document.createElement('script');
+          script.src = 'https://accounts.google.com/gsi/client';
+          script.async = true;
+          script.defer = true;
+          script.onload = () => loadResolve();
+          script.onerror = () => loadReject(new Error('Failed to load Google Identity Services'));
+          document.body.appendChild(script);
+        });
+      }
+
+      gapi = window.gapi;
+      
+      gapi.load('client', async () => {
         try {
           await gapi.client.init({
-            clientId: CLIENT_ID,
             discoveryDocs: DISCOVERY_DOCS,
-            scope: SCOPES,
           });
           resolve();
         } catch (initError) {
           console.error("Gmail API client.init error:", initError);
-          toast.error("Gmail API initialization failed");
+          toast({
+            variant: "destructive",
+            title: "Gmail API Error",
+            description: "Gmail API initialization failed"
+          });
           reject(initError);
         }
       });
     } catch (error) {
       console.error("Gmail API load error:", error);
-      toast.error("Failed to load Gmail API");
+      toast({
+        variant: "destructive",
+        title: "Gmail API Error",
+        description: "Failed to load Gmail API"
+      });
       reject(error);
     }
   });
@@ -53,44 +85,66 @@ export const signIn = async (): Promise<boolean> => {
   try {
     await initGmailApi();
 
-    const authInstance = gapi.auth2.getAuthInstance();
-    if (!authInstance.isSignedIn.get()) {
-      await authInstance.signIn();
-    }
-    return true;
+    const accessToken = await new Promise<string | null>((resolve) => {
+      if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+        resolve(null);
+        return;
+      }
+
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: (response: any) => {
+          if (response.error) {
+            console.error('OAuth error:', response);
+            resolve(null);
+          } else {
+            resolve(response.access_token);
+          }
+        }
+      });
+
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+
+    return !!accessToken;
   } catch (error) {
     console.error("Error signing in with Gmail:", error);
-    toast.error("Failed to sign in with Gmail");
+    toast({
+      variant: "destructive",
+      title: "Gmail Error",
+      description: "Failed to sign in with Gmail"
+    });
     return false;
   }
 };
 
 export const signOut = async (): Promise<void> => {
   try {
-    if (isGmailApiInitialized()) {
-      const authInstance = gapi.auth2.getAuthInstance();
-      if (authInstance.isSignedIn.get()) {
-        await authInstance.signOut();
-        toast.success("Signed out from Gmail");
-      }
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+      window.google.accounts.oauth2.revoke(
+        localStorage.getItem('googleToken') || '',
+        () => {
+          localStorage.removeItem('googleToken');
+          toast({
+            title: "Signed Out",
+            description: "Signed out from Gmail"
+          });
+        }
+      );
     }
   } catch (error) {
     console.error("Error signing out from Gmail:", error);
-    toast.error("Failed to sign out from Gmail");
+    toast({
+      variant: "destructive",
+      title: "Gmail Error",
+      description: "Failed to sign out from Gmail"
+    });
   }
 };
 
 export const isUserSignedIn = (): boolean => {
-  try {
-    if (isGmailApiInitialized()) {
-      const authInstance = gapi.auth2.getAuthInstance();
-      return authInstance.isSignedIn.get();
-    }
-    return false;
-  } catch (error) {
-    console.error("Error checking sign-in status:", error);
-    return false;
-  }
+  return !!localStorage.getItem('googleToken');
 };
 
 const encodeEmail = (emailData: { to: string; subject: string; body: string }): string => {
@@ -122,6 +176,7 @@ export const sendEmailViaGmail = async (emailData: {
       }
     }
 
+    await initGmailApi();
     const encodedEmail = encodeEmail(emailData);
 
     await gapi.client.gmail.users.messages.send({
@@ -131,11 +186,19 @@ export const sendEmailViaGmail = async (emailData: {
       },
     });
 
-    toast.success("Email sent successfully via Gmail");
+    toast({
+      title: "Email Sent",
+      description: "Email sent successfully via Gmail"
+    });
+    
     return true;
   } catch (error) {
     console.error("Error sending email via Gmail API:", error);
-    toast.error("Failed to send email via Gmail");
+    toast({
+      variant: "destructive",
+      title: "Gmail Error",
+      description: "Failed to send email via Gmail"
+    });
     return false;
   }
 };
