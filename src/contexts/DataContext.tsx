@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, inventoryMetrics } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
@@ -23,24 +22,19 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize with empty array
   const [products, setProducts] = useState<Product[]>([]);
   const [isUsingMockData, setIsUsingMockData] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<string>(() => {
-    // Default to the current month name
     return new Date().toLocaleString('default', { month: 'long' });
   });
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const { toast } = useToast();
 
-  // Load data on initial render if user is authenticated
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     
-    // Only try to auto-load data if user is authenticated
     if (isAuthenticated) {
-      // Try to load the latest file automatically
       autoLoadLatestFile();
     }
   }, []);
@@ -49,17 +43,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoadingData(true);
       
-      // Load the Google API
       await loadGoogleApi();
       
-      // Get OAuth token
       const accessToken = await getGoogleDriveAccessToken();
       if (!accessToken) {
         console.error('Failed to get access token for auto-loading');
         return;
       }
       
-      // Search for the latest Excel file
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files?q=mimeType contains 'spreadsheet' and trashed=false&orderBy=modifiedTime desc&fields=files(id,name,createdTime)&pageSize=1`,
         {
@@ -143,7 +134,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       
-      // Download the file content
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -171,7 +161,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       uploadData(jsonData);
       setCurrentFileName(fileName);
       
-      // Try to extract date from filename for the month display
       const dateMatch = fileName.match(/(\d{1,2})[-\.](\d{1,2})[-\.](\d{2,4})/);
       if (dateMatch) {
         const [_, day, month, year] = dateMatch;
@@ -207,13 +196,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // Add more detailed logging to see exactly what's in the Excel for lead time
       if (data.length > 0) {
-        // Print all column headers exactly as they appear in the Excel
         const sampleItem = data[0];
         console.log('All column headers as in Excel:', Object.keys(sampleItem));
         
-        // Safely check for lead time field in the raw data
         console.log('Lead time field in raw data:', 
           Object.keys(sampleItem).find(key => {
             if (key === null || key === undefined) return false;
@@ -227,7 +213,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           })
         );
         
-        // Log the actual value in the first item safely
         Object.keys(sampleItem).forEach(key => {
           try {
             if (key === null || key === undefined) return;
@@ -240,7 +225,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           }
         });
         
-        // Try to extract month information from file metadata if available
         try {
           if (sampleItem?.month || sampleItem?.reportMonth || sampleItem?.period) {
             const monthInfo = sampleItem?.month || sampleItem?.reportMonth || sampleItem?.period;
@@ -253,7 +237,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      // Process the uploaded data with our data processor
       const processedData = processUploadedData(data);
       console.log('Data processed successfully, products count:', processedData.length);
       
@@ -262,15 +245,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      // Apply bundle calculations
       const productsWithBundleInfo = calculateBundleInformation(processedData);
       
-      // Log some samples to diagnose issues
       if (productsWithBundleInfo.length > 0) {
         console.log('First product lead time:', productsWithBundleInfo[0].leadTime);
         console.log('Sample product data with bundle info:', productsWithBundleInfo[0]);
         
-        // Log bundle groups
         const baseUnits = productsWithBundleInfo.filter(p => p.isBaseUnit);
         console.log('Base units found:', baseUnits.length);
         if (baseUnits.length > 0) {
@@ -279,7 +259,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           console.log(`Bundled SKUs:`, sampleBaseUnit.bundledSKUs);
         }
         
-        // Log overstock items
         const overstockItems = productsWithBundleInfo.filter(p => p.isOverstock);
         console.log('Overstock items found:', overstockItems.length);
       }
@@ -289,45 +268,35 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setIsUsingMockData(false);
     } catch (error) {
       console.error('Error in uploadData:', error);
-      // Set to empty array to avoid crashes
       setProducts([]);
     }
   };
 
   const resetToMockData = () => {
-    // Reset to empty array
     setProducts([]);
     setIsUsingMockData(false);
     setCurrentFileName(null);
-    // Reset month to current month
     setCurrentMonth(new Date().toLocaleString('default', { month: 'long' }));
   };
 
-  // Calculate low stock items based on the formula: (WH + FBA) < (PASD × (Lead Time + Transit Time))
   const getLowStockItems = (): Product[] => {
     try {
       return products.filter(product => {
-        // Use safe utility functions to handle mixed data types
         const pasd = safeNumber(product.pasd, 0);
         const leadTime = safeNumber(product.leadTime, 0);
         const transitTime = safeNumber(product.transit, 0);
         
-        // Skip products without necessary data
         if (pasd <= 0 || leadTime <= 0) {
           return false;
         }
         
-        // Calculate available inventory - using only what's in the dataset
         const warehouseStock = safeNumber(product.wh, 0);
         const fbaStock = safeNumber(product.fba, 0);
         
-        // Calculate available inventory (WH + FBA)
         const availableInventory = warehouseStock + fbaStock;
         
-        // Calculate low stock threshold: PASD × (Lead Time + Transit Time)
         const lowStockThreshold = pasd * (leadTime + transitTime);
         
-        // Flag if available inventory is below threshold and the threshold is valid
         return lowStockThreshold > 0 && availableInventory < lowStockThreshold;
       });
     } catch (error) {
@@ -336,7 +305,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Calculate overstock items based on the formula: WH > PASD * Order Frequency * 1.5
   const getOverstockItems = (): Product[] => {
     try {
       return products.filter(product => isProductOverstocked(product));
@@ -346,7 +314,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Get the current month being displayed
   const getCurrentMonth = (): string => {
     return currentMonth;
   };
@@ -370,21 +337,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
-
-// Add TypeScript declaration for Google OAuth
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: any) => {
-            requestAccessToken: (options?: any) => void;
-          };
-        };
-      };
-    };
-  }
-}
 
 export const useData = () => {
   const context = useContext(DataContext);
