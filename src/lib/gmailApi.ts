@@ -1,7 +1,6 @@
-
 import { toast } from "@/hooks/use-toast";
 
-const CLIENT_ID = "570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com";
+const CLIENT_ID = "308713919748-j4i4giqvgkuluukemumj709k1q279865.apps.googleusercontent.com";
 const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
 const SCOPES = "https://www.googleapis.com/auth/gmail.send";
 
@@ -122,29 +121,19 @@ export const signIn = async (): Promise<boolean> => {
 export const signOut = async (): Promise<void> => {
   try {
     if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-      // Using manual token revocation instead of the missing method
+      // Using manual token revocation
       const token = localStorage.getItem('googleToken') || '';
       
-      if (window.google.accounts.oauth2.revoke) {
-        window.google.accounts.oauth2.revoke(token, () => {
-          localStorage.removeItem('googleToken');
-          toast({
-            title: "Signed Out",
-            description: "Signed out from Gmail"
-          });
+      // Create a revocation URL and send a request
+      const revokeUrl = `https://accounts.google.com/o/oauth2/revoke?token=${token}`;
+      
+      const response = await fetch(revokeUrl);
+      if (response.ok) {
+        localStorage.removeItem('googleToken');
+        toast({
+          title: "Signed Out",
+          description: "Signed out from Gmail"
         });
-      } else {
-        // Create a revocation URL and send a request
-        const revokeUrl = `https://accounts.google.com/o/oauth2/revoke?token=${token}`;
-        
-        const response = await fetch(revokeUrl);
-        if (response.ok) {
-          localStorage.removeItem('googleToken');
-          toast({
-            title: "Signed Out",
-            description: "Signed out from Gmail"
-          });
-        }
       }
     }
   } catch (error) {

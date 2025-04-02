@@ -29,7 +29,7 @@ const Login = () => {
       return `${protocol}//${hostname}${port}/dashboard`;
     }
     
-    // For production environment - use the base URL without paths
+    // For production environment - use the full current URL up to the path
     return `${protocol}//${hostname}${port}`;
   };
 
@@ -71,7 +71,7 @@ const Login = () => {
             type: 'standard',
             theme: 'outline',
             size: 'large',
-            width: 'fill',
+            width: 280,
             logo_alignment: 'center',
             text: 'continue_with'
           }
@@ -108,7 +108,9 @@ const Login = () => {
         });
         
         // Navigate to dashboard after successful login
-        navigate('/dashboard');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
       } else {
         toast({
           variant: "destructive",
@@ -138,7 +140,9 @@ const Login = () => {
         title: "Login successful",
         description: "Welcome to BOLDFIT Inventory Management",
       });
-      navigate('/dashboard');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     } else {
       toast({
         variant: "destructive",

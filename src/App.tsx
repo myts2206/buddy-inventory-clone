@@ -27,43 +27,50 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }, [isAuthenticated, navigate, location]);
 
   if (!isAuthenticated) {
-    return null; // Will be redirected by the useEffect
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } 
-          />
-          {/* Redirect root to dashboard if logged in, otherwise to login */}
-          <Route 
-            path="/" 
-            element={
-              localStorage.getItem('isAuthenticated') === 'true' 
-                ? <Navigate to="/dashboard" replace /> 
-                : <Navigate to="/login" replace />
-            } 
-          />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Dynamically check if user is authenticated for the root redirect
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={
+              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            } />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Redirect root to dashboard if logged in, otherwise to login */}
+            <Route 
+              path="/" 
+              element={
+                isAuthenticated 
+                  ? <Navigate to="/dashboard" replace /> 
+                  : <Navigate to="/login" replace />
+              } 
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
