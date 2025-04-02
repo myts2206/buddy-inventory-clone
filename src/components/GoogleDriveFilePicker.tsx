@@ -34,7 +34,7 @@ const GoogleDriveFilePicker = ({ onFileSelect, currentFileName }: GoogleDriveFil
 
   const getAccessToken = async (): Promise<string | null> => {
     return new Promise((resolve) => {
-      if (typeof window.google === 'undefined') {
+      if (typeof window.google === 'undefined' || !window.google.accounts || !window.google.accounts.oauth2) {
         toast({
           variant: "destructive",
           title: "Google API not loaded",
@@ -196,25 +196,5 @@ const GoogleDriveFilePicker = ({ onFileSelect, currentFileName }: GoogleDriveFil
     </Card>
   );
 };
-
-// Add TypeScript declaration for Google OAuth
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        id: {
-          initialize: (config: any) => void;
-          renderButton: (element: HTMLElement | null, options: any) => void;
-          prompt: () => void;
-        };
-        oauth2: {
-          initTokenClient: (config: any) => {
-            requestAccessToken: (options?: any) => void;
-          };
-        };
-      };
-    };
-  }
-}
 
 export default GoogleDriveFilePicker;

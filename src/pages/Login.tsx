@@ -40,7 +40,7 @@ const Login = () => {
   }, []);
 
   const initializeGoogleSignIn = () => {
-    if (typeof window.google !== 'undefined') {
+    if (typeof window.google !== 'undefined' && window.google.accounts && window.google.accounts.id) {
       window.google.accounts.id.initialize({
         client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
         callback: handleGoogleResponse,
@@ -54,7 +54,7 @@ const Login = () => {
           type: 'standard',
           theme: 'outline',
           size: 'large',
-          width: '100%',
+          width: 'fill',
           logo_alignment: 'center',
           text: 'continue_with'
         }
@@ -232,20 +232,5 @@ const Login = () => {
     </div>
   );
 };
-
-// Add TypeScript declaration for Google Identity Services
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        id: {
-          initialize: (config: any) => void;
-          renderButton: (element: HTMLElement | null, options: any) => void;
-          prompt: () => void;
-        };
-      };
-    };
-  }
-}
 
 export default Login;

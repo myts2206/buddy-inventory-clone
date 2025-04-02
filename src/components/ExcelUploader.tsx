@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Info, FileSpreadsheet, CheckCircle2, History, RefreshCw } from 'lucide-react';
+import { Upload, Info, FileSpreadsheet, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useData } from '@/contexts/DataContext';
 import * as XLSX from 'xlsx';
@@ -107,7 +107,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
 
   const handleGoogleDriveFile = async () => {
     try {
-      // Load the Google API
+      // Ensure Google API is loaded
       await loadGoogleApi();
       
       // Get access token
@@ -122,23 +122,34 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
         return;
       }
 
-      // Initialize Google Picker
-      const picker = new google.picker.PickerBuilder()
-        .addView(new google.picker.DocsView()
-          .setIncludeFolders(false)
-          .setMimeTypes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv')
-        )
-        .setOAuthToken(accessToken)
-        .setDeveloperKey('AIzaSyCYDj_5YgUEmzq8WSRe0H7nLvflB5COug8')
-        .setCallback(handlePickerCallback)
-        .build();
+      // Manual file selection using the Google Drive API
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=mimeType contains 'spreadsheet' and trashed=false&orderBy=modifiedTime desc&fields=files(id,name)`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
       
-      picker.setVisible(true);
+      if (data.files && data.files.length > 0) {
+        // Use the first file (most recent)
+        const firstFile = data.files[0];
+        handlePickerFileSelected(firstFile.id, firstFile.name);
+      } else {
+        toast({
+          title: "No files found",
+          description: "Could not find Excel files in Google Drive",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
-      console.error('Picker error:', error);
+      console.error('Google Drive error:', error);
       toast({
-        title: "Google Picker Error",
-        description: "Could not load file picker.",
+        title: "Google Drive Error",
+        description: "Could not load file from Google Drive",
         variant: "destructive"
       });
     }
@@ -146,7 +157,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
 
   const loadGoogleApi = async (): Promise<void> => {
     // Load Google Identity Services if not already loaded
-    if (typeof google === 'undefined' || !google.accounts) {
+    if (typeof window.google === 'undefined' || !window.google.accounts) {
       await new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
@@ -157,21 +168,11 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
         document.body.appendChild(script);
       });
     }
-
-    // Load Google Picker API if not already loaded
-    if (typeof google === 'undefined' || !google.picker) {
-      await new Promise<void>((resolve, reject) => {
-        gapi.load('picker', {
-          callback: resolve,
-          onerror: () => reject(new Error('Failed to load Google Picker API')),
-        });
-      });
-    }
   };
 
   const getGoogleDriveAccessToken = async (): Promise<string | null> => {
     return new Promise((resolve) => {
-      if (typeof google === 'undefined' || !google.accounts) {
+      if (typeof window.google === 'undefined' || !window.google.accounts || !window.google.accounts.oauth2) {
         toast({
           variant: "destructive",
           title: "Google API not loaded",
@@ -181,7 +182,7 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
         return;
       }
 
-      const tokenClient = google.accounts.oauth2.initTokenClient({
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: '570416026363-6vc4d3b0rehro504289npl7sj3sv7h4q.apps.googleusercontent.com',
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: (response: any) => {
@@ -202,17 +203,12 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
     });
   };
 
-  const handlePickerCallback = async (data: any) => {
-    if (data.action === 'picked') {
-      const fileId = data.docs[0].id;
-      const fileName = data.docs[0].name;
-      
-      const success = await loadFileFromGoogleDrive(fileId, fileName);
-      if (success) {
-        setIsUploaded(true);
-        setFileName(fileName);
-        onDataUploaded();
-      }
+  const handlePickerFileSelected = async (fileId: string, fileName: string) => {
+    const success = await loadFileFromGoogleDrive(fileId, fileName);
+    if (success) {
+      setIsUploaded(true);
+      setFileName(fileName);
+      onDataUploaded();
     }
   };
 
@@ -386,13 +382,5 @@ const ExcelUploader = ({ onDataUploaded }: ExcelUploaderProps) => {
     </Card>
   );
 };
-
-// Add declarations for the Google APIs
-declare global {
-  interface Window {
-    google: any;
-    gapi: any;
-  }
-}
 
 export default ExcelUploader;

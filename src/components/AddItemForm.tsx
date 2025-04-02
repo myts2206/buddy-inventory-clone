@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TagInput } from "@/components/TagInput";
+import TagInput from "@/components/TagInput";
 import { DialogFooter } from "@/components/ui/dialog";
 
 export function AddItemForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -60,15 +60,14 @@ export function AddItemForm({ onSuccess }: { onSuccess?: () => void }) {
       return;
     }
 
-    // Since this is where the error occurs, ensure all required fields are provided
-    // The issue is that the form data passed to addItem has optional properties
-    // but the type definition requires them to be non-optional
+    // Update the addItem call to match the InventoryItem type
     addItem({
       name: formData.name,
       quantity: formData.quantity,
       category: formData.category,
-      description: formData.description,
+      price: 0, // Set a default value for price as it's required
       tags: formData.tags,
+      notes: formData.description // Use notes instead of description
     });
 
     toast({
@@ -162,10 +161,10 @@ export function AddItemForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="space-y-2">
         <Label>Tags</Label>
         <TagInput
-          tags={formData.tags}
-          onTagsChange={handleTagsChange}
+          value={formData.tags}
+          onChange={handleTagsChange}
           placeholder="Add tags..."
-          maxTags={10}
+          availableTags={[]}
         />
       </div>
 
