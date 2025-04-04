@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Product, inventoryMetrics } from '@/lib/types';
+import { Product, inventoryMetrics as InventoryMetricsType } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
 import { calculateBundleInformation, isProductOverstocked } from '@/lib/bundleCalculator';
 import { safeNumber, exists, safeString } from '@/lib/utils';
@@ -20,7 +20,7 @@ interface DataContextType {
   currentFileName: string | null;
   loadFileFromGoogleDrive: (fileId: string, fileName: string) => Promise<boolean>;
   isLoadingData: boolean;
-  inventoryMetrics: inventoryMetrics | null;
+  inventoryMetrics: InventoryMetricsType | null;
   fetchInventoryMetrics: () => Promise<void>;
 }
 

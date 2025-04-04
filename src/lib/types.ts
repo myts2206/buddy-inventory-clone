@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -94,23 +95,25 @@ export interface OrderSuggestion {
   finalOrderQuantity?: number;
 }
 
-export const inventoryMetrics = {
-  totalProducts: 0,
-  totalValue: 0,
-  lowStockItems: 0,
-  outOfStockItems: 0,
-  overstockItems: 0,  // Added overstock items count
-  averageTurnoverRate: 0,
-  avgDRR: 0,
-  avgDOC: 0,
-  targetAchievement: 0,
-  inventoryHealthScore: 0,
-  totalTransit: 0,
-  totalToOrder: 0,
-  avgPASD: 0,
-  overstockRate: 0,  // Added overstock rate
-  stockoutRate: 0    // Added stockout rate for clarity
-};
+export interface inventoryMetrics {
+  totalProducts: number;
+  totalValue: number;
+  lowStockItems: number;
+  outOfStockItems: number;
+  overstockItems: number;
+  averageTurnoverRate: number;
+  avgDRR: number;
+  avgDOC: number;
+  targetAchievement: number;
+  inventoryHealthScore: number;
+  totalTransit: number;
+  itemsInTransit: number;
+  totalToOrder: number;
+  itemsToOrder: number;
+  avgPASD: number;
+  overstockRate: number;
+  stockoutRate: number;
+}
 
 export const monthlyDemandData = [
   { month: 'Dec', value: 0 },
