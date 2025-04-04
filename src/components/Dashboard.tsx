@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -13,7 +13,8 @@ import {
   ActivitySquare,
   CircleCheckBig,
   CircleAlert,
-  ArrowUp
+  ArrowUp,
+  Loader2
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -24,8 +25,8 @@ import ProductCard from './ProductCard';
 import InventoryTable from './InventoryTable';
 import { useData } from '@/contexts/DataContext';
 import { useSearch } from '@/contexts/SearchContext';
-import { calculateInventoryMetrics } from '@/lib/dataProcessor';
 import { formatNumber } from '@/lib/utils';
+import { Product } from '@/lib/types';
 
 const StatCard = ({ 
   title, 
@@ -175,9 +176,44 @@ const HealthScoreCard = ({
 };
 
 const Dashboard = () => {
-  const { products, isUsingMockData, getLowStockItems, getOverstockItems } = useData();
+  const { 
+    products, 
+    isUsingMockData, 
+    getLowStockItems, 
+    getOverstockItems, 
+    getCurrentMonth,
+    inventoryMetrics,
+    fetchInventoryMetrics,
+    isLoadingData
+  } = useData();
   const { searchQuery } = useSearch();
   const [activeOverviewTab, setActiveOverviewTab] = useState('summary');
+  const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
+  const [overstockItems, setOverstockItems] = useState<Product[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingItems(true);
+      try {
+        // Refresh inventory metrics
+        await fetchInventoryMetrics();
+        
+        // Fetch low stock and overstock items
+        const lowItems = await getLowStockItems();
+        const overItems = await getOverstockItems();
+        
+        setLowStockItems(lowItems);
+        setOverstockItems(overItems);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+    
+    fetchData();
+  }, [getLowStockItems, getOverstockItems, fetchInventoryMetrics]);
   
   const filteredProducts = useMemo(() => {
     if (!searchQuery) return products;
@@ -188,38 +224,44 @@ const Dashboard = () => {
   }, [products, searchQuery]);
   
   const filteredLowStockItems = useMemo(() => {
-    const lowStockItems = getLowStockItems();
     if (!searchQuery) return lowStockItems;
     return lowStockItems.filter(product => 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [getLowStockItems, searchQuery]);
+  }, [lowStockItems, searchQuery]);
   
   const filteredOverstockItems = useMemo(() => {
-    const overstockItems = getOverstockItems();
     if (!searchQuery) return overstockItems;
     return overstockItems.filter(product => 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [getOverstockItems, searchQuery]);
+  }, [overstockItems, searchQuery]);
   
-  const baseMetrics = calculateInventoryMetrics(products);
-  
-  const totalProducts = products.length;
-  const overstockRate = totalProducts > 0 ? Math.round((filteredOverstockItems.length / totalProducts) * 100) : 0;
-  const stockoutRate = totalProducts > 0 ? Math.round((filteredLowStockItems.length / totalProducts) * 100) : 0;
+  const totalProducts = inventoryMetrics?.totalProducts || products.length;
+  const overstockRate = totalProducts > 0 ? Math.round(((inventoryMetrics?.overstockItems || filteredOverstockItems.length) / totalProducts) * 100) : 0;
+  const stockoutRate = totalProducts > 0 ? Math.round(((inventoryMetrics?.lowStockItems || filteredLowStockItems.length) / totalProducts) * 100) : 0;
   
   const inventoryHealthScore = Math.max(0, 100 - (overstockRate + stockoutRate));
   
-  const inventoryMetrics = {
-    ...baseMetrics,
-    overstockItems: filteredOverstockItems.length,
-    overstockRate,
-    stockoutRate,
-    inventoryHealthScore,
-  };
+  if (isLoadingData && filteredProducts.length === 0) {
+    return (
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+              <h2 className="text-xl font-semibold">Loading your inventory data...</h2>
+              <p className="text-muted-foreground mt-2">
+                Please wait while we fetch your latest data
+              </p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="p-6 space-y-6">
@@ -249,13 +291,13 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Total Products" 
-          value={searchQuery ? filteredProducts.length : inventoryMetrics.totalProducts || 0}
+          value={searchQuery ? filteredProducts.length : (inventoryMetrics?.totalProducts || 0)}
           icon={<Package className="h-4 w-4 text-primary" />}
           description="Across multiple categories"
         />
         <StatCard 
           title="Items In Transit" 
-          value={inventoryMetrics.itemsInTransit || 0}
+          value={inventoryMetrics?.itemsInTransit || 0}
           icon={<TruckIcon className="h-4 w-4 text-primary" />}
         />
         <StatCard 

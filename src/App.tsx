@@ -8,8 +8,16 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import { supabase } from "./lib/supabase";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -36,6 +44,16 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 const App = () => {
   // Dynamically check if user is authenticated for the root redirect
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+
+  // Inform user if Supabase credentials are missing
+  useEffect(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Supabase credentials are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -5,18 +5,22 @@ import { calculateBundleInformation, isProductOverstocked } from '@/lib/bundleCa
 import { safeNumber, exists, safeString } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 interface DataContextType {
   products: Product[];
   isUsingMockData: boolean;
   uploadData: (data: any[]) => void;
   resetToMockData: () => void;
-  getLowStockItems: () => Product[];
-  getOverstockItems: () => Product[];
+  getLowStockItems: () => Promise<Product[]>;
+  getOverstockItems: () => Promise<Product[]>;
   getCurrentMonth: () => string;
   currentFileName: string | null;
   loadFileFromGoogleDrive: (fileId: string, fileName: string) => Promise<boolean>;
   isLoadingData: boolean;
+  inventoryMetrics: inventoryMetrics | null;
+  fetchInventoryMetrics: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -29,15 +33,82 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   });
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [inventoryMetrics, setInventoryMetrics] = useState<inventoryMetrics | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
     
     if (isAuthenticated) {
-      autoLoadLatestFile();
+      fetchProducts();
+      fetchInventoryMetrics();
     }
   }, []);
+
+  const fetchInventoryMetrics = async () => {
+    try {
+      const { data, error } = await supabase.rpc('calculate_inventory_metrics');
+      
+      if (error) {
+        console.error('Error fetching inventory metrics:', error);
+        return;
+      }
+      
+      setInventoryMetrics(data);
+    } catch (error) {
+      console.error('Error in fetchInventoryMetrics:', error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      setIsLoadingData(true);
+      
+      const { data, error } = await supabase
+        .from('master')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching products:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Transform the data to match the Product interface
+        const transformedData = data.map((item: any) => ({
+          id: item.id || crypto.randomUUID(),
+          brand: item.brand || '',
+          product: item.product || '',
+          variant: item.variant || '',
+          name: item.product_name || '',
+          sku: item.sku || '',
+          wh: safeNumber(item.wh, 0),
+          fba: safeNumber(item.fba, 0),
+          pasd: safeNumber(item.pasd, 0),
+          leadTime: safeNumber(item.lead_time, 0),
+          transit: safeNumber(item.transit, 0),
+          orderFreq: safeNumber(item.order_freq, 0),
+          mpDemand: safeNumber(item.mp_demand, 0),
+          toOrder: safeNumber(item.to_order, 0),
+          // Include other fields as needed
+          isBaseUnit: false,
+          isOverstock: false,
+          bundledSKUs: [],
+          finalToOrderBaseUnits: 0
+        }));
+        
+        // Process with bundle information if needed
+        const productsWithBundleInfo = calculateBundleInformation(transformedData);
+        setProducts(productsWithBundleInfo);
+        
+        console.log('Fetched products from Supabase:', productsWithBundleInfo.length);
+      }
+    } catch (error) {
+      console.error('Error in fetchProducts:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const autoLoadLatestFile = async () => {
     try {
@@ -279,35 +350,72 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCurrentMonth(new Date().toLocaleString('default', { month: 'long' }));
   };
 
-  const getLowStockItems = (): Product[] => {
+  const getLowStockItems = async (): Promise<Product[]> => {
     try {
-      return products.filter(product => {
-        const pasd = safeNumber(product.pasd, 0);
-        const leadTime = safeNumber(product.leadTime, 0);
-        const transitTime = safeNumber(product.transit, 0);
-        
-        if (pasd <= 0 || leadTime <= 0) {
-          return false;
-        }
-        
-        const warehouseStock = safeNumber(product.wh, 0);
-        const fbaStock = safeNumber(product.fba, 0);
-        
-        const availableInventory = warehouseStock + fbaStock;
-        
-        const lowStockThreshold = pasd * (leadTime + transitTime);
-        
-        return lowStockThreshold > 0 && availableInventory < lowStockThreshold;
-      });
+      const { data, error } = await supabase.rpc('get_low_stock_items');
+      
+      if (error) {
+        console.error('Error fetching low stock items:', error);
+        return [];
+      }
+      
+      return data.map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        brand: item.brand || '',
+        product: item.product || '',
+        variant: item.variant || '',
+        name: item.name || '',
+        sku: item.sku || '',
+        wh: safeNumber(item.wh, 0),
+        fba: safeNumber(item.fba, 0),
+        pasd: safeNumber(item.pasd, 0),
+        leadTime: safeNumber(item.lead_time, 0),
+        transit: safeNumber(item.transit, 0),
+        mpDemand: safeNumber(item.mp_demand, 0),
+        toOrder: safeNumber(item.to_order, 0),
+        // Include other necessary fields
+        isBaseUnit: false,
+        isOverstock: false,
+        bundledSKUs: [],
+        finalToOrderBaseUnits: 0,
+        orderFreq: 0
+      }));
     } catch (error) {
       console.error('Error in getLowStockItems:', error);
       return [];
     }
   };
   
-  const getOverstockItems = (): Product[] => {
+  const getOverstockItems = async (): Promise<Product[]> => {
     try {
-      return products.filter(product => isProductOverstocked(product));
+      const { data, error } = await supabase.rpc('get_overstock_items');
+      
+      if (error) {
+        console.error('Error fetching overstock items:', error);
+        return [];
+      }
+      
+      return data.map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        brand: item.brand || '',
+        product: item.product || '',
+        variant: item.variant || '',
+        name: item.name || '',
+        sku: item.sku || '',
+        wh: safeNumber(item.wh, 0),
+        fba: safeNumber(item.fba, 0),
+        pasd: safeNumber(item.pasd, 0),
+        leadTime: safeNumber(item.lead_time, 0),
+        transit: safeNumber(item.transit, 0),
+        orderFreq: safeNumber(item.order_freq, 0),
+        mpDemand: safeNumber(item.mp_demand, 0),
+        toOrder: safeNumber(item.to_order, 0),
+        // Include other necessary fields
+        isBaseUnit: false,
+        isOverstock: true,
+        bundledSKUs: [],
+        finalToOrderBaseUnits: 0
+      }));
     } catch (error) {
       console.error('Error in getOverstockItems:', error);
       return [];
@@ -330,7 +438,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         getCurrentMonth,
         currentFileName,
         loadFileFromGoogleDrive,
-        isLoadingData
+        isLoadingData,
+        inventoryMetrics,
+        fetchInventoryMetrics
       }}
     >
       {children}
