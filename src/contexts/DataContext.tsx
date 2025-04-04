@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, inventoryMetrics as InventoryMetricsType } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
@@ -34,7 +33,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   });
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [inventoryMetrics, setInventoryMetrics] = useState<inventoryMetrics | null>(null);
+  const [inventoryMetrics, setInventoryMetrics] = useState<InventoryMetricsType | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,7 +74,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (data && data.length > 0) {
-        // Transform the data to match the Product interface
         const transformedData = data.map((item: any) => ({
           id: item.id || crypto.randomUUID(),
           brand: item.brand || '',
@@ -83,7 +81,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           variant: item.variant || '',
           name: item.product_name || '',
           sku: item.sku || '',
-          category: item.category || 'Uncategorized', // Add default category
+          category: item.category || 'Uncategorized',
           wh: safeNumber(item.wh, 0),
           fba: safeNumber(item.fba, 0),
           pasd: safeNumber(item.pasd, 0),
@@ -92,7 +90,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           orderFreq: safeNumber(item.order_freq, 0),
           mpDemand: safeNumber(item.mp_demand, 0),
           toOrder: safeNumber(item.to_order, 0),
-          // Include other fields as needed
           isBaseUnit: false,
           isOverstock: false,
           bundledSKUs: [],
@@ -100,7 +97,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           salesHistory: []
         }));
         
-        // Process with bundle information if needed
         const productsWithBundleInfo = calculateBundleInformation(transformedData);
         setProducts(productsWithBundleInfo);
         
@@ -369,7 +365,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         variant: item.variant || '',
         name: item.name || '',
         sku: item.sku || '',
-        category: item.category || 'Uncategorized', // Add category
+        category: item.category || 'Uncategorized',
         wh: safeNumber(item.wh, 0),
         fba: safeNumber(item.fba, 0),
         pasd: safeNumber(item.pasd, 0),
@@ -377,7 +373,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         transit: safeNumber(item.transit, 0),
         mpDemand: safeNumber(item.mp_demand, 0),
         toOrder: safeNumber(item.to_order, 0),
-        // Include other necessary fields
         isBaseUnit: false,
         isOverstock: false,
         bundledSKUs: [],
@@ -407,7 +402,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         variant: item.variant || '',
         name: item.name || '',
         sku: item.sku || '',
-        category: item.category || 'Uncategorized', // Add category
+        category: item.category || 'Uncategorized',
         wh: safeNumber(item.wh, 0),
         fba: safeNumber(item.fba, 0),
         pasd: safeNumber(item.pasd, 0),
@@ -416,7 +411,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         orderFreq: safeNumber(item.order_freq, 0),
         mpDemand: safeNumber(item.mp_demand, 0),
         toOrder: safeNumber(item.to_order, 0),
-        // Include other necessary fields
         isBaseUnit: false,
         isOverstock: true,
         bundledSKUs: [],

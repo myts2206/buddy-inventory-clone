@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -42,16 +41,16 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 };
 
 const App = () => {
-  // Dynamically check if user is authenticated for the root redirect
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
-  // Inform user if Supabase credentials are missing
   useEffect(() => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
-      console.warn('Supabase credentials are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+      console.warn('Supabase credentials are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_KEY environment variables.');
+    } else {
+      console.log('Supabase credentials found in environment variables');
     }
   }, []);
 
@@ -73,7 +72,6 @@ const App = () => {
                 </ProtectedRoute>
               } 
             />
-            {/* Redirect root to dashboard if logged in, otherwise to login */}
             <Route 
               path="/" 
               element={
@@ -82,7 +80,6 @@ const App = () => {
                   : <Navigate to="/login" replace />
               } 
             />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
