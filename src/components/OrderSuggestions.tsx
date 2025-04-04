@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, Package, Plus, Filter, X, Link } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { useData } from '@/contexts/DataContext';
 import { useSearch } from '@/contexts/SearchContext';
-import { OrderSuggestion } from '@/lib/types';
+import { OrderSuggestion, Product } from '@/lib/types';
 import VendorOrderDialog from './VendorOrderDialog';
 import BulkOrderDialog from './BulkOrderDialog';
 import { Toaster } from "@/components/ui/sonner";
@@ -48,7 +49,15 @@ const OrderSuggestions = ({ className }: { className?: string }) => {
     setVendorFilter 
   } = useSearch();
   
-  const lowStockItems = getLowStockItems();
+  const [localLowStockItems, setLocalLowStockItems] = useState<Product[]>([]);
+  const lowStockItems = localLowStockItems;
+  
+  useEffect(() => {
+    // Get the low stock items
+    const items = getLowStockItems();
+    setLocalLowStockItems(items);
+  }, [getLowStockItems]);
+  
   const [selectedProduct, setSelectedProduct] = useState<OrderSuggestion | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkOrderDialogOpen, setIsBulkOrderDialogOpen] = useState(false);

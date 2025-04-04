@@ -196,12 +196,12 @@ const Dashboard = () => {
     const fetchData = async () => {
       setIsLoadingItems(true);
       try {
-        // Refresh inventory metrics
+        // Refresh inventory metrics using RPC
         await fetchInventoryMetrics();
         
         // Fetch low stock and overstock items
-        const lowItems = await getLowStockItems();
-        const overItems = await getOverstockItems();
+        const lowItems = getLowStockItems();
+        const overItems = getOverstockItems();
         
         setLowStockItems(lowItems);
         setOverstockItems(overItems);

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, inventoryMetrics as InventoryMetricsType, defaultInventoryMetrics } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
@@ -51,12 +52,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   
   const fetchLowStockItems = async () => {
     try {
+      // Use RPC to call the get_low_stock_items function
       const { data, error } = await supabase.rpc('get_low_stock_items');
       
       if (error) {
         console.error('Error fetching low stock items:', error);
         setLowStockProducts([]);
-        return;
+        return [];
       }
       
       const lowStockItems = data.map((item: any) => ({
@@ -64,7 +66,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         brand: item.brand || '',
         product: item.product || '',
         variant: item.variant || '',
-        name: item.name || '',
+        name: item.product_name || '',
         sku: item.sku || '',
         category: item.category || 'Uncategorized',
         wh: safeNumber(item.wh, 0),
@@ -78,25 +80,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         isOverstock: false,
         bundledSKUs: [],
         finalToOrderBaseUnits: 0,
-        orderFreq: 0,
+        orderFreq: safeNumber(item.order_freq, 0),
         salesHistory: []
       }));
       
       setLowStockProducts(lowStockItems);
+      return lowStockItems;
     } catch (error) {
       console.error('Error in fetchLowStockItems:', error);
       setLowStockProducts([]);
+      return [];
     }
   };
   
   const fetchOverstockItems = async () => {
     try {
+      // Use RPC to call the get_overstock_items function
       const { data, error } = await supabase.rpc('get_overstock_items');
       
       if (error) {
         console.error('Error fetching overstock items:', error);
         setOverstockProducts([]);
-        return;
+        return [];
       }
       
       const overstockItems = data.map((item: any) => ({
@@ -104,7 +109,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         brand: item.brand || '',
         product: item.product || '',
         variant: item.variant || '',
-        name: item.name || '',
+        name: item.product_name || '',
         sku: item.sku || '',
         category: item.category || 'Uncategorized',
         wh: safeNumber(item.wh, 0),
@@ -123,24 +128,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }));
       
       setOverstockProducts(overstockItems);
+      return overstockItems;
     } catch (error) {
       console.error('Error in fetchOverstockItems:', error);
       setOverstockProducts([]);
+      return [];
     }
   };
 
   const fetchInventoryMetrics = async () => {
     try {
+      // Use RPC to call the calculate_inventory_metrics function
       const { data, error } = await supabase.rpc('calculate_inventory_metrics');
       
       if (error) {
         console.error('Error fetching inventory metrics:', error);
+        setInventoryMetrics(defaultInventoryMetrics);
         return;
       }
       
       setInventoryMetrics(data);
     } catch (error) {
       console.error('Error in fetchInventoryMetrics:', error);
+      setInventoryMetrics(defaultInventoryMetrics);
     }
   };
 
@@ -148,6 +158,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoadingData(true);
       
+      // Use direct query to get all products
       const { data, error } = await supabase
         .from('master')
         .select('*');
