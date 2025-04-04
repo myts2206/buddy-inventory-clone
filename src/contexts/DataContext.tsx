@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, inventoryMetrics } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
@@ -82,6 +83,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           variant: item.variant || '',
           name: item.product_name || '',
           sku: item.sku || '',
+          category: item.category || 'Uncategorized', // Add default category
           wh: safeNumber(item.wh, 0),
           fba: safeNumber(item.fba, 0),
           pasd: safeNumber(item.pasd, 0),
@@ -94,7 +96,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           isBaseUnit: false,
           isOverstock: false,
           bundledSKUs: [],
-          finalToOrderBaseUnits: 0
+          finalToOrderBaseUnits: 0,
+          salesHistory: []
         }));
         
         // Process with bundle information if needed
@@ -366,6 +369,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         variant: item.variant || '',
         name: item.name || '',
         sku: item.sku || '',
+        category: item.category || 'Uncategorized', // Add category
         wh: safeNumber(item.wh, 0),
         fba: safeNumber(item.fba, 0),
         pasd: safeNumber(item.pasd, 0),
@@ -378,7 +382,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         isOverstock: false,
         bundledSKUs: [],
         finalToOrderBaseUnits: 0,
-        orderFreq: 0
+        orderFreq: 0,
+        salesHistory: []
       }));
     } catch (error) {
       console.error('Error in getLowStockItems:', error);
@@ -402,6 +407,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         variant: item.variant || '',
         name: item.name || '',
         sku: item.sku || '',
+        category: item.category || 'Uncategorized', // Add category
         wh: safeNumber(item.wh, 0),
         fba: safeNumber(item.fba, 0),
         pasd: safeNumber(item.pasd, 0),
@@ -414,7 +420,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         isBaseUnit: false,
         isOverstock: true,
         bundledSKUs: [],
-        finalToOrderBaseUnits: 0
+        finalToOrderBaseUnits: 0,
+        salesHistory: []
       }));
     } catch (error) {
       console.error('Error in getOverstockItems:', error);

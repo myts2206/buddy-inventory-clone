@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -37,13 +37,29 @@ interface InventoryTableProps {
 const InventoryTable = ({ products, isOverview = false }: InventoryTableProps) => {
   const [viewMode, setViewMode] = useState<'standard' | 'expanded'>(isOverview ? 'standard' : 'expanded');
   const { getLowStockItems, getOverstockItems } = useData();
-  const lowStockItems = getLowStockItems();
-  const overstockItems = getOverstockItems();
+  const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
+  const [overstockItems, setOverstockItems] = useState<Product[]>([]);
   const isMobile = useIsMobile();
   
   // Add state for the detail modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // Fetch low stock and overstock items when component mounts
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const lowItems = await getLowStockItems();
+        const overItems = await getOverstockItems();
+        setLowStockItems(lowItems);
+        setOverstockItems(overItems);
+      } catch (error) {
+        console.error('Error fetching inventory items:', error);
+      }
+    };
+    
+    fetchItems();
+  }, [getLowStockItems, getOverstockItems]);
   
   // Create sets for quick lookups
   const lowStockIds = new Set(lowStockItems.map(product => product.id));
