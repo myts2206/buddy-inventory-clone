@@ -1,5 +1,4 @@
-
-import { Product, inventoryMetrics } from './types';
+import { Product, inventoryMetrics, defaultInventoryMetrics } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { safeNumber, exists } from './utils';
 
@@ -203,7 +202,7 @@ export const calculateInventoryMetrics = (products: Product[]) => {
     // Safeguard against empty products array
     if (!Array.isArray(products) || products.length === 0) {
       console.log('No products provided for metrics calculation');
-      return { ...inventoryMetrics };
+      return { ...defaultInventoryMetrics };
     }
     
     // Calculate low stock items using the same logic as in DataContext's getLowStockItems
@@ -402,11 +401,14 @@ export const calculateInventoryMetrics = (products: Product[]) => {
       itemsInTransit, 
       totalToOrder,
       itemsToOrder,
-      avgPASD
+      avgPASD,
+      overstockItems: 0,
+      overstockRate: 0,
+      stockoutRate: 0
     };
   } catch (error) {
     console.error('Error calculating inventory metrics:', error);
     // Return default metrics to prevent dashboard crashes
-    return { ...inventoryMetrics };
+    return { ...defaultInventoryMetrics };
   }
 };

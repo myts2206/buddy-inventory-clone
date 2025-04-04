@@ -114,6 +114,27 @@ export interface inventoryMetrics {
   stockoutRate: number;
 }
 
+// Default inventory metrics object to use as fallback
+export const defaultInventoryMetrics: inventoryMetrics = {
+  totalProducts: 0,
+  totalValue: 0,
+  lowStockItems: 0,
+  outOfStockItems: 0,
+  overstockItems: 0,
+  averageTurnoverRate: 0,
+  avgDRR: 0,
+  avgDOC: 0,
+  targetAchievement: 0,
+  inventoryHealthScore: 0,
+  totalTransit: 0,
+  itemsInTransit: 0,
+  totalToOrder: 0,
+  itemsToOrder: 0,
+  avgPASD: 0,
+  overstockRate: 0,
+  stockoutRate: 0
+};
+
 export const monthlyDemandData = [
   { month: 'Dec', value: 0 },
   { month: 'Jan', value: 0 },

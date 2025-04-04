@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Product, inventoryMetrics as InventoryMetricsType } from '@/lib/types';
+import { Product, inventoryMetrics as InventoryMetricsType, defaultInventoryMetrics } from '@/lib/types';
 import { processUploadedData } from '@/lib/dataProcessor';
 import { calculateBundleInformation, isProductOverstocked } from '@/lib/bundleCalculator';
 import { safeNumber, exists, safeString } from '@/lib/utils';
@@ -13,8 +13,8 @@ interface DataContextType {
   isUsingMockData: boolean;
   uploadData: (data: any[]) => void;
   resetToMockData: () => void;
-  getLowStockItems: () => Promise<Product[]>;
-  getOverstockItems: () => Promise<Product[]>;
+  getLowStockItems: () => Product[];
+  getOverstockItems: () => Product[];
   getCurrentMonth: () => string;
   currentFileName: string | null;
   loadFileFromGoogleDrive: (fileId: string, fileName: string) => Promise<boolean>;
@@ -34,6 +34,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [inventoryMetrics, setInventoryMetrics] = useState<InventoryMetricsType | null>(null);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+  const [overstockProducts, setOverstockProducts] = useState<Product[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,8 +44,90 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (isAuthenticated) {
       fetchProducts();
       fetchInventoryMetrics();
+      fetchLowStockItems();
+      fetchOverstockItems();
     }
   }, []);
+  
+  const fetchLowStockItems = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_low_stock_items');
+      
+      if (error) {
+        console.error('Error fetching low stock items:', error);
+        setLowStockProducts([]);
+        return;
+      }
+      
+      const lowStockItems = data.map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        brand: item.brand || '',
+        product: item.product || '',
+        variant: item.variant || '',
+        name: item.name || '',
+        sku: item.sku || '',
+        category: item.category || 'Uncategorized',
+        wh: safeNumber(item.wh, 0),
+        fba: safeNumber(item.fba, 0),
+        pasd: safeNumber(item.pasd, 0),
+        leadTime: safeNumber(item.lead_time, 0),
+        transit: safeNumber(item.transit, 0),
+        mpDemand: safeNumber(item.mp_demand, 0),
+        toOrder: safeNumber(item.to_order, 0),
+        isBaseUnit: false,
+        isOverstock: false,
+        bundledSKUs: [],
+        finalToOrderBaseUnits: 0,
+        orderFreq: 0,
+        salesHistory: []
+      }));
+      
+      setLowStockProducts(lowStockItems);
+    } catch (error) {
+      console.error('Error in fetchLowStockItems:', error);
+      setLowStockProducts([]);
+    }
+  };
+  
+  const fetchOverstockItems = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_overstock_items');
+      
+      if (error) {
+        console.error('Error fetching overstock items:', error);
+        setOverstockProducts([]);
+        return;
+      }
+      
+      const overstockItems = data.map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        brand: item.brand || '',
+        product: item.product || '',
+        variant: item.variant || '',
+        name: item.name || '',
+        sku: item.sku || '',
+        category: item.category || 'Uncategorized',
+        wh: safeNumber(item.wh, 0),
+        fba: safeNumber(item.fba, 0),
+        pasd: safeNumber(item.pasd, 0),
+        leadTime: safeNumber(item.lead_time, 0),
+        transit: safeNumber(item.transit, 0),
+        orderFreq: safeNumber(item.order_freq, 0),
+        mpDemand: safeNumber(item.mp_demand, 0),
+        toOrder: safeNumber(item.to_order, 0),
+        isBaseUnit: false,
+        isOverstock: true,
+        bundledSKUs: [],
+        finalToOrderBaseUnits: 0,
+        salesHistory: []
+      }));
+      
+      setOverstockProducts(overstockItems);
+    } catch (error) {
+      console.error('Error in fetchOverstockItems:', error);
+      setOverstockProducts([]);
+    }
+  };
 
   const fetchInventoryMetrics = async () => {
     try {
@@ -349,78 +433,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCurrentMonth(new Date().toLocaleString('default', { month: 'long' }));
   };
 
-  const getLowStockItems = async (): Promise<Product[]> => {
-    try {
-      const { data, error } = await supabase.rpc('get_low_stock_items');
-      
-      if (error) {
-        console.error('Error fetching low stock items:', error);
-        return [];
-      }
-      
-      return data.map((item: any) => ({
-        id: item.id || crypto.randomUUID(),
-        brand: item.brand || '',
-        product: item.product || '',
-        variant: item.variant || '',
-        name: item.name || '',
-        sku: item.sku || '',
-        category: item.category || 'Uncategorized',
-        wh: safeNumber(item.wh, 0),
-        fba: safeNumber(item.fba, 0),
-        pasd: safeNumber(item.pasd, 0),
-        leadTime: safeNumber(item.lead_time, 0),
-        transit: safeNumber(item.transit, 0),
-        mpDemand: safeNumber(item.mp_demand, 0),
-        toOrder: safeNumber(item.to_order, 0),
-        isBaseUnit: false,
-        isOverstock: false,
-        bundledSKUs: [],
-        finalToOrderBaseUnits: 0,
-        orderFreq: 0,
-        salesHistory: []
-      }));
-    } catch (error) {
-      console.error('Error in getLowStockItems:', error);
-      return [];
-    }
+  const getLowStockItems = (): Product[] => {
+    return lowStockProducts;
   };
   
-  const getOverstockItems = async (): Promise<Product[]> => {
-    try {
-      const { data, error } = await supabase.rpc('get_overstock_items');
-      
-      if (error) {
-        console.error('Error fetching overstock items:', error);
-        return [];
-      }
-      
-      return data.map((item: any) => ({
-        id: item.id || crypto.randomUUID(),
-        brand: item.brand || '',
-        product: item.product || '',
-        variant: item.variant || '',
-        name: item.name || '',
-        sku: item.sku || '',
-        category: item.category || 'Uncategorized',
-        wh: safeNumber(item.wh, 0),
-        fba: safeNumber(item.fba, 0),
-        pasd: safeNumber(item.pasd, 0),
-        leadTime: safeNumber(item.lead_time, 0),
-        transit: safeNumber(item.transit, 0),
-        orderFreq: safeNumber(item.order_freq, 0),
-        mpDemand: safeNumber(item.mp_demand, 0),
-        toOrder: safeNumber(item.to_order, 0),
-        isBaseUnit: false,
-        isOverstock: true,
-        bundledSKUs: [],
-        finalToOrderBaseUnits: 0,
-        salesHistory: []
-      }));
-    } catch (error) {
-      console.error('Error in getOverstockItems:', error);
-      return [];
-    }
+  const getOverstockItems = (): Product[] => {
+    return overstockProducts;
   };
 
   const getCurrentMonth = (): string => {
